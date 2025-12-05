@@ -1,3 +1,4 @@
+import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
@@ -8,12 +9,20 @@ export async function registerPushToken() {
     return null;
   }
 
+  console.log(`📱 App ownership: ${Constants.appOwnership}`);
+
   // Cek permission
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
   if (existingStatus !== "granted") {
-    const { status } = await Notifications.requestPermissionsAsync();
+    const { status } = await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowBadge: true,
+        allowSound: true,
+      },
+    });
     finalStatus = status;
   }
 
@@ -22,31 +31,64 @@ export async function registerPushToken() {
     return null;
   }
 
-  // Ambil token EXPO dengan projectId
-  const expoTokenData = await Notifications.getExpoPushTokenAsync({
-    projectId: "38a8a718-ab3c-4116-a4c8-7dae6be95900",
-  });
-
-  console.log("📌 Raw token object:", expoTokenData);
-
-  const token = expoTokenData.data;
-
-  console.log("📌 Final push token:", token);
-
-  // Validasi format
-  if (!token.startsWith("ExponentPushToken")) {
-    console.log("⚠ WARNING: Token ini BUKAN Expo token yg valid!");
-  }
-
-  // Android Notification Channel
+  // Setup Android notification channels
   if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "default",
+    await Notifications.setNotificationChannelAsync("high-priority", {
+      name: "High Priority",
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: "#FF231F7C",
+      enableVibrate: true,
+      enableLights: true,
+      showBadge: true,
+      sound: "default",
+    });
+
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "Default",
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#FF231F7C",
+      enableVibrate: true,
+      enableLights: true,
+      showBadge: true,
+      sound: "default",
     });
   }
 
-  return token;
+  const isExpoGo = Constants.appOwnership === "expo";
+
+  try {
+    if (isExpoGo) {
+      console.log("📱 Running in Expo Go - Using Expo token");
+      const expoTokenData = await Notifications.getExpoPushTokenAsync({
+        projectId: "38a8a718-ab3c-4116-a4c8-7dae6be95900",
+      });
+      console.log("📌 Expo Push Token:", expoTokenData.data);
+      return expoTokenData.data;
+    } else {
+      console.log("📱 Running in Dev Build");
+
+      if (Platform.OS === "android") {
+        try {
+          const deviceTokenData = await Notifications.getDevicePushTokenAsync();
+          console.log("📌 Device (FCM) Token:", deviceTokenData.data);
+          return deviceTokenData.data;
+        } catch (deviceError) {
+          console.log("⚠️ Failed to get device token, falling back to Expo:", deviceError);
+        }
+      }
+
+      // Fallback ke Expo token (iOS atau jika device token gagal)
+      console.log("🔄 Falling back to Expo token");
+      const expoTokenData = await Notifications.getExpoPushTokenAsync({
+        projectId: "38a8a718-ab3c-4116-a4c8-7dae6be95900",
+      });
+      console.log("📌 Fallback Expo Token:", expoTokenData.data);
+      return expoTokenData.data;
+    }
+  } catch (error) {
+    console.error("❌ Error getting push token:", error);
+    return null;
+  }
 }

@@ -8,11 +8,7 @@
     "scheme": "arsipapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-
-    "ios": {
-      "supportsTablet": true
-    },
-
+    "ios": {},
     "android": {
       "package": "com.dinsos.arsipapp",
       "googleServicesFile": "./google-services.json",
@@ -23,14 +19,23 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "SCHEDULE_EXACT_ALARM",
+        "USE_EXACT_ALARM",
+        "VIBRATE"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        }
+      }
     },
-
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-
     "plugins": [
       "expo-router",
       [
@@ -49,23 +54,26 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#ffffff",
+          "defaultChannel": "high-priority",
+          "androidMode": "default",
+          "androidCollapsedTitle": "Arsip Dinsos",
           "useNextNotificationsApi": true
         }
-      ]
+      ],
+      "expo-build-properties"
     ],
-
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
-
     "extra": {
       "router": {},
       "eas": {
         "projectId": "38a8a718-ab3c-4116-a4c8-7dae6be95900"
       }
     },
-
     "owner": "fengxui"
   }
 }
