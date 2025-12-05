@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "904464078218",
+    "project_id": "notifikasi-dinsos",
+    "storage_bucket": "notifikasi-dinsos.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:904464078218:android:dccadbcd185e1464ce2473",
+        "android_client_info": {
+          "package_name": "com.dinsos.arsipapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA8lm2WlijT-iR8qW3QqW2y6evb0zaORS4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
