@@ -10,6 +10,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -277,161 +278,168 @@ export default function ProfileStaff() {
         )}
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 25}
       >
-        {/* Avatar Section */}
-        <View style={styles.avatarSection}>
-          <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
-            {newPhoto || photoUrl ? (
-              <Image
-                source={{ uri: newPhoto?.uri || photoUrl }}
-                style={styles.avatar}
-              />
-            ) : (
-              <View
-                style={[
-                  styles.avatar,
-                  { backgroundColor: getRandomColor(name) },
-                ]}
-              >
-                <Text style={styles.initial}>{getInitials(name)}</Text>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Avatar Section */}
+          <View style={styles.avatarSection}>
+            <TouchableOpacity
+              onPress={pickImage}
+              style={styles.avatarContainer}
+            >
+              {newPhoto || photoUrl ? (
+                <Image
+                  source={{ uri: newPhoto?.uri || photoUrl }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.avatar,
+                    { backgroundColor: getRandomColor(name) },
+                  ]}
+                >
+                  <Text style={styles.initial}>{getInitials(name)}</Text>
+                </View>
+              )}
+              <View style={styles.cameraIcon}>
+                <Ionicons name="camera" size={20} color="white" />
               </View>
-            )}
-            <View style={styles.cameraIcon}>
-              <Ionicons name="camera" size={20} color="white" />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Form Section */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Informasi Pribadi</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nama Lengkap</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="person-outline"
-                size={20}
-                color="#666"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Masukkan nama lengkap"
-                placeholderTextColor="#999"
-                value={name}
-                onChangeText={setName}
-              />
-            </View>
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Username</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="at-outline"
-                size={20}
-                color="#666"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Masukkan username"
-                placeholderTextColor="#999"
-                value={username}
-                onChangeText={setUsername}
-              />
+          {/* Form Section */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>Informasi Pribadi</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nama Lengkap</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="person-outline"
+                  size={20}
+                  color="#666"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Masukkan nama lengkap"
+                  placeholderTextColor="#999"
+                  value={name}
+                  onChangeText={setName}
+                />
+              </View>
             </View>
-          </View>
 
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionTitle}>Ubah Password</Text>
-          <Text style={styles.sectionSubtitle}>
-            Kosongkan jika tidak ingin mengubah password
-          </Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password Lama</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color="#666"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Masukkan password lama"
-                placeholderTextColor="#999"
-                secureTextEntry
-                value={oldPassword}
-                onChangeText={setOldPassword}
-              />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Username</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="at-outline"
+                  size={20}
+                  color="#666"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Masukkan username"
+                  placeholderTextColor="#999"
+                  value={username}
+                  onChangeText={setUsername}
+                />
+              </View>
             </View>
-          </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password Baru</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color="#666"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Masukkan password baru"
-                placeholderTextColor="#999"
-                secureTextEntry
-                value={newPassword}
-                onChangeText={setNewPassword}
-              />
+            <View style={styles.divider} />
+
+            <Text style={styles.sectionTitle}>Ubah Password</Text>
+            <Text style={styles.sectionSubtitle}>
+              Kosongkan jika tidak ingin mengubah password
+            </Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password Lama</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color="#666"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Masukkan password lama"
+                  placeholderTextColor="#999"
+                  secureTextEntry
+                  value={oldPassword}
+                  onChangeText={setOldPassword}
+                />
+              </View>
             </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password Baru</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color="#666"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Masukkan password baru"
+                  placeholderTextColor="#999"
+                  secureTextEntry
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                />
+              </View>
+            </View>
+
+            {/* Tombol Simpan Perubahan */}
+            <TouchableOpacity
+              style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+              onPress={!loading ? handleUpdate : undefined}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="save-outline" size={20} color="white" />
+                  <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Tombol Logout - Disesuaikan dengan tampilan ProfileStaff */}
+            <TouchableOpacity
+              style={[
+                styles.logoutButton,
+                loading && styles.saveButtonDisabled,
+              ]}
+              onPress={handleLogout}
+              disabled={loading}
+            >
+              <Ionicons name="log-out-outline" size={20} color="white" />
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
           </View>
-
-          {/* Tombol Simpan Perubahan */}
-          <TouchableOpacity
-            style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-            onPress={!loading ? handleUpdate : undefined}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="save-outline" size={20} color="white" />
-                <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {/* Tombol Logout - Disesuaikan dengan tampilan ProfileStaff */}
-          <TouchableOpacity
-            style={[styles.logoutButton, loading && styles.saveButtonDisabled]}
-            onPress={handleLogout}
-            disabled={loading}
-          >
-            <Ionicons name="log-out-outline" size={20} color="white" />
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| STYLES
-|--------------------------------------------------------------------------
-*/
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -450,8 +458,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 15,
-    paddingBottom: 15,
+    paddingBottom: 40,
     paddingHorizontal: 23,
+    flexGrow: 1,
   },
   avatarSection: {
     alignItems: "center",
@@ -568,7 +577,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: 8,
-    marginTop: 15,    
+    marginTop: 15,
     shadowColor: "#e53935",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,

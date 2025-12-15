@@ -8,6 +8,7 @@ import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -222,9 +223,15 @@ export default function Profile() {
   return (
     <SafeAreaProvider>
       <SafeAreaView
+
         style={{ flex: 1, backgroundColor: "white" }}
         edges={["left", "right", "bottom"]}
       >
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        >
         <View style={styles.container}>
           {/* Header dengan Tombol Kembali */}
           <View style={styles.pageHeader}>
@@ -256,9 +263,10 @@ export default function Profile() {
 
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: 40 }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {/* Avatar Section */}
             <View style={styles.avatarSection}>
@@ -396,6 +404,7 @@ export default function Profile() {
             </View>
           </ScrollView>
         </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </SafeAreaProvider>
   );

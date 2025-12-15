@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,7 +16,6 @@ import {
 import Alert from "@/components/Alert";
 import Log from "@/components/Log";
 import Navbar from "@/components/Navbar";
-import UserForm from "@/components/UserForm";
 import { API_URL } from "@/config/apiConfig";
 import * as SecureStore from "expo-secure-store";
 
@@ -27,20 +29,18 @@ interface User {
 }
 
 export default function UsersPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [logMessage, setLogMessage] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [userRole, setUserRole] = useState<string | null>(null);
-
-  // State untuk Alert konfirmasi hapus
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
@@ -56,16 +56,13 @@ export default function UsersPage() {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error response:", errorText);
         throw new Error(`Gagal mengambil data users: ${response.status}`);
       }
 
       const data = await response.json();
       setUsers(data);
-      setFilteredUsers(data.slice(0, 10)); // Batasi ke 10 data pertama
+      setFilteredUsers(data.slice(0, 10));
     } catch (error: any) {
-      console.error("Error fetching users:", error);
       setLogMessage({
         type: "error",
         message: error.message || "Gagal memuat data users",
@@ -76,25 +73,40 @@ export default function UsersPage() {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      console.log("DocumentPage: screen focused -> calling fetchUsers()");
+      setLoading(true);
+      fetchUsers();
+      return () => {
+        console.log("DocumentPage: screen unfocused");
+      };
+    }, [])
+  );
+
   useEffect(() => {
-    const fetchUserRole = async () => {
+    const fetchUserInfo = async () => {
       const role = await SecureStore.getItemAsync("role");
+      const userId = await SecureStore.getItemAsync("user_id");
       setUserRole(role);
+      setCurrentUserId(userId);
     };
-    fetchUserRole();
+
+    fetchUserInfo();
     fetchUsers();
   }, []);
 
-  // Filter users berdasarkan pencarian
   useEffect(() => {
     if (searchQuery.trim() === "") {
       setFilteredUsers(users.slice(0, 10));
     } else {
       const filtered = users
-        .filter((user) =>
-          user.name.toLowerCase().includes(searchQuery.toLowerCase())
+        .filter(
+          (user) =>
+            user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            user.username.toLowerCase().includes(searchQuery.toLowerCase())
         )
-        .slice(0, 10); // Tetap batasi maksimal 10 hasil
+        .slice(0, 10);
       setFilteredUsers(filtered);
     }
   }, [searchQuery, users]);
@@ -104,99 +116,15 @@ export default function UsersPage() {
     fetchUsers();
   };
 
-  const handleCreateUser = async (userData: {
-    name: string;
-    username: string;
-    password: string;
-    role: string;
-  }) => {
-    try {
-      const token = await SecureStore.getItemAsync("token");
-      const endpoint = `${API_URL}/api/users/${userData.role}`;
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userData),
-      });
-
-      const responseText = await response.text();
-
-      if (!response.ok) {
-        let errorMessage = "Gagal membuat user";
-        try {
-          const errorData = JSON.parse(responseText);
-          errorMessage = errorData.error || errorData.message || errorMessage;
-        } catch {
-          errorMessage = responseText || errorMessage;
-        }
-        throw new Error(errorMessage);
-      }
-
-      setShowForm(false);
-      setLogMessage({
-        type: "success",
-        message: "User berhasil dibuat",
-      });
-      fetchUsers();
-    } catch (error: any) {
-      console.error("Create user error:", error);
-      setLogMessage({
-        type: "error",
-        message: error.message || "Gagal membuat user",
-      });
-    }
+  const handleAddUser = () => {
+    router.push("/form/UserForm");
   };
 
-  const handleUpdateUser = async (userData: {
-    name: string;
-    username: string;
-    password: string;
-    role: string;
-  }) => {
-    if (!editingUser) return;
-
-    try {
-      const token = await SecureStore.getItemAsync("token");
-      const response = await fetch(`${API_URL}/api/users/${editingUser.id}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userData),
-      });
-
-      const responseText = await response.text();
-
-      if (!response.ok) {
-        let errorMessage = "Gagal mengupdate user";
-        try {
-          const errorData = JSON.parse(responseText);
-          errorMessage = errorData.error || errorData.message || errorMessage;
-        } catch {
-          errorMessage = responseText || errorMessage;
-        }
-        throw new Error(errorMessage);
-      }
-
-      setShowForm(false);
-      setEditingUser(null);
-      setLogMessage({
-        type: "success",
-        message: "User berhasil diupdate",
-      });
-      fetchUsers();
-    } catch (error: any) {
-      console.error("Update user error:", error);
-      setLogMessage({
-        type: "error",
-        message: error.message || "Gagal mengupdate user",
-      });
-    }
+  const handleEditUser = (user: User) => {
+    router.push({
+      pathname: "/form/UserForm",
+      params: { editData: JSON.stringify(user) },
+    });
   };
 
   const handleDeleteUser = (user: User) => {
@@ -205,9 +133,7 @@ export default function UsersPage() {
   };
 
   const confirmDelete = async () => {
-    if (userToDelete) {
-      await deleteUser(userToDelete.id);
-    }
+    if (userToDelete) await deleteUser(userToDelete.id);
     setShowDeleteAlert(false);
     setUserToDelete(null);
   };
@@ -222,9 +148,7 @@ export default function UsersPage() {
       const token = await SecureStore.getItemAsync("token");
       const response = await fetch(`${API_URL}/api/users/${userId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
@@ -243,9 +167,9 @@ export default function UsersPage() {
         type: "success",
         message: "User berhasil dihapus",
       });
+
       fetchUsers();
     } catch (error: any) {
-      console.error("Delete user error:", error);
       setLogMessage({
         type: "error",
         message: error.message || "Gagal menghapus user",
@@ -256,7 +180,7 @@ export default function UsersPage() {
   const getRoleColor = (role: string) => {
     switch (role) {
       case "superadmin":
-        return "#ff6b35";
+        return "#FF6B35";
       case "admin":
         return "#0055A5";
       case "staff":
@@ -266,12 +190,44 @@ export default function UsersPage() {
     }
   };
 
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case "superadmin":
+        return "Super Admin";
+      case "admin":
+        return "Admin";
+      case "staff":
+        return "User";
+      default:
+        return role;
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("id-ID", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
+  };
+
+  const canEditUser = (user: User) => {
+    if (!userRole) return false;
+    if (userRole === "superadmin") return user.id !== currentUserId;
+    if (userRole === "admin") return user.role === "staff";
+    return false;
+  };
+
+  const canDeleteUser = (user: User) => {
+    if (!userRole) return false;
+    if (userRole === "superadmin")
+      return user.id !== currentUserId && user.role !== "superadmin";
+    if (userRole === "admin") return user.role === "staff";
+    return false;
+  };
+
+  const canCreateUser = () => {
+    return userRole === "superadmin" || userRole === "admin";
   };
 
   if (loading) {
@@ -290,7 +246,6 @@ export default function UsersPage() {
     <View style={styles.container}>
       <Navbar />
 
-      {/* Floating Log Container */}
       <View style={styles.floatingLogContainer}>
         {logMessage && (
           <Log
@@ -301,114 +256,139 @@ export default function UsersPage() {
         )}
       </View>
 
-      <ScrollView
-        style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 25}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Manajemen Users</Text>
-          <Text style={styles.subtitle}>Kelola user admin dan staff</Text>
-        </View>
-
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{users.length}</Text>
-            <Text style={styles.statLabel}>Total Users</Text>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Manajemen Users</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>
-              {users.filter((u) => u.role === "admin").length}
-            </Text>
-            <Text style={styles.statLabel}>Admin</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>
-              {users.filter((u) => u.role === "staff").length}
-            </Text>
-            <Text style={styles.statLabel}>Staff</Text>
-          </View>
-        </View>
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Cari berdasarkan nama..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery !== "" && (
-            <TouchableOpacity
-              style={styles.clearSearchButton}
-              onPress={() => setSearchQuery("")}
-            >
-              <Text style={styles.clearSearchText}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.actionBar}>
-          {userRole === "superadmin" && (
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => setShowForm(true)}
-            >
-              <Text style={styles.addButtonText}>+ Tambah User</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.usersList}>
-          {filteredUsers.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>
-                {searchQuery !== ""
-                  ? `Tidak ditemukan user dengan nama "${searchQuery}"`
-                  : "Belum ada data user"}
-              </Text>
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{users.length}</Text>
+              <Text style={styles.statLabel}>Total Users</Text>
             </View>
-          ) : (
-            filteredUsers.map((user) => (
-              <View key={user.id} style={styles.userCard}>
-                <View style={styles.userInfo}>
-                  <View style={styles.userMain}>
-                    <Text style={styles.userName}>{user.name}</Text>
-                    <Text style={styles.userUsername}>{user.username}</Text>
-                    <Text style={styles.userDate}>
-                      Dibuat: {formatDate(user.created_at)}
-                    </Text>
-                  </View>
-                  <View style={styles.userMeta}>
-                    {/* Role di kiri */}
-                    <View
-                      style={[
-                        styles.roleBadge,
-                        { backgroundColor: getRoleColor(user.role) },
-                      ]}
-                    >
-                      <Text style={styles.roleText}>
-                        {user.role.toUpperCase()}
-                      </Text>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>
+                {users.filter((u) => u.role === "admin").length}
+              </Text>
+              <Text style={styles.statLabel}>Admin</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>
+                {users.filter((u) => u.role === "staff").length}
+              </Text>
+              <Text style={styles.statLabel}>User</Text>
+            </View>
+            {userRole === "superadmin" && (
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>
+                  {users.filter((u) => u.role === "superadmin").length}
+                </Text>
+                <Text style={styles.statLabel}>Super Admin</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBox}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Cari pengguna..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor="#999"
+              />
+              {searchQuery !== "" && (
+                <TouchableOpacity
+                  style={styles.clearSearchButton}
+                  onPress={() => setSearchQuery("")}
+                >
+                  <Text style={styles.clearSearchText}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.actionBar}>
+            {canCreateUser() && (
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={handleAddUser}
+              >
+                <Text style={styles.addButtonText}>+ Tambah User</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.usersList}>
+            {filteredUsers.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>
+                  {searchQuery !== ""
+                    ? `Tidak ditemukan user dengan kata kunci "${searchQuery}"`
+                    : "Belum ada data user"}
+                </Text>
+              </View>
+            ) : (
+              filteredUsers.map((user) => (
+                <View key={user.id} style={styles.userCard}>
+                  <View style={styles.userInfo}>
+                    <View style={styles.userHeader}>
+                      <Text style={styles.userName}>{user.name}</Text>
+                      <View
+                        style={[
+                          styles.roleBadge,
+                          { backgroundColor: getRoleColor(user.role) },
+                        ]}
+                      >
+                        <Text style={styles.roleText}>
+                          {getRoleDisplayName(user.role)}
+                        </Text>
+                      </View>
                     </View>
 
-                    {/* Actions di kanan */}
-                    <View style={{ flex: 1 }} />
+                    <View style={styles.userDetails}>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Username:</Text>
+                        <Text style={styles.detailValue}>{user.username}</Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Dibuat:</Text>
+                        <Text style={styles.detailValue}>
+                          {formatDate(user.created_at)}
+                        </Text>
+                      </View>
+                      {user.id === currentUserId && (
+                        <View style={styles.currentUserIndicator}>
+                          <Text style={styles.currentUserText}>Akun Anda</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
 
-                    <View style={styles.userActions}>
-                      <TouchableOpacity
-                        style={styles.editButton}
-                        onPress={() => {
-                          setEditingUser(user);
-                          setShowForm(true);
-                        }}
-                      >
-                        <Text style={styles.editButtonText}>Edit</Text>
-                      </TouchableOpacity>
+                  <View style={styles.userActions}>
+                    {canEditUser(user) ? (
+                      <>
+                        <TouchableOpacity
+                          style={styles.editButton}
+                          onPress={() => handleEditUser(user)}
+                        >
+                          <Text style={styles.editButtonText}>Edit</Text>
+                        </TouchableOpacity>
 
-                      {userRole === "superadmin" &&
-                        user.role !== "superadmin" && (
+                        {canDeleteUser(user) && (
                           <TouchableOpacity
                             style={styles.deleteButton}
                             onPress={() => handleDeleteUser(user)}
@@ -416,30 +396,26 @@ export default function UsersPage() {
                             <Text style={styles.deleteButtonText}>Hapus</Text>
                           </TouchableOpacity>
                         )}
-                    </View>
+                      </>
+                    ) : (
+                      <Text style={styles.noPermissionText}>
+                        {user.id === currentUserId
+                          ? "Akun sendiri"
+                          : "Tidak dapat diubah"}
+                      </Text>
+                    )}
                   </View>
                 </View>
-              </View>
-            ))
-          )}
-        </View>
-      </ScrollView>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-      <UserForm
-        visible={showForm}
-        onClose={() => {
-          setShowForm(false);
-          setEditingUser(null);
-        }}
-        onSubmit={editingUser ? handleUpdateUser : handleCreateUser}
-        editData={editingUser}
-      />
-
-      {/* Alert Konfirmasi Hapus */}
       {showDeleteAlert && userToDelete && (
         <Alert
           title="Konfirmasi Hapus"
-          message={`Apakah Anda yakin ingin menghapus user ${userToDelete.name}?`}
+          message={`Apakah Anda yakin ingin menghapus user "${userToDelete.name}"?`}
           onYes={confirmDelete}
           onNo={cancelDelete}
         />
@@ -463,33 +439,33 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    flexGrow: 1,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   title: {
     fontSize: 28,
     fontFamily: "PoppinsBold",
     color: "#333",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    fontFamily: "Poppins",
-    color: "#666",
+    marginBottom: 4,
   },
   statsContainer: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     marginBottom: 24,
   },
   statCard: {
-    flex: 1,
+    width: "48%",
     backgroundColor: "#f8f9fa",
     padding: 16,
     borderRadius: 12,
-    marginHorizontal: 4,
+    marginBottom: 12,
     alignItems: "center",
     elevation: 2,
     shadowColor: "#000",
@@ -510,39 +486,31 @@ const styles = StyleSheet.create({
   },
   // Search Styles
   searchContainer: {
+    marginBottom: 16,
+  },
+  searchBox: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
-    position: "relative",
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
   searchInput: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
-    borderColor: "#ddd",
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 14,
     fontFamily: "Poppins",
+    color: "#333",
   },
   clearSearchButton: {
-    position: "absolute",
-    right: 12,
     padding: 4,
   },
   clearSearchText: {
     fontSize: 16,
     color: "#666",
-  },
-  resultsInfo: {
-    marginBottom: 16,
-  },
-  resultsText: {
-    fontSize: 12,
-    fontFamily: "Poppins",
-    color: "#666",
-    textAlign: "center",
+    fontFamily: "PoppinsBold",
   },
   actionBar: {
     flexDirection: "row",
@@ -567,16 +535,12 @@ const styles = StyleSheet.create({
   },
   usersList: {
     flex: 1,
-    paddingBottom: 25,
   },
   userCard: {
     backgroundColor: "white",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -586,50 +550,75 @@ const styles = StyleSheet.create({
     borderLeftColor: "#0055A5",
   },
   userInfo: {
-    flex: 1,
+    marginBottom: 12,
   },
-  userMain: {
-    marginBottom: 8,
+  userHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
   },
   userName: {
     fontSize: 16,
     fontFamily: "PoppinsBold",
     color: "#333",
-    marginBottom: 4,
-  },
-  userUsername: {
-    fontSize: 14,
-    fontFamily: "Poppins",
-    color: "#666",
-  },
-  userMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingRight: 10,
+    flex: 1,
+    marginRight: 12,
   },
   roleBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
+    minWidth: 80,
+    alignItems: "center",
   },
   roleText: {
     fontSize: 10,
     fontFamily: "PoppinsBold",
     color: "white",
   },
-  userDate: {
-    fontSize: 11,
+  userDetails: {
+    backgroundColor: "#f9f9f9",
+    padding: 12,
+    borderRadius: 8,
+  },
+  detailRow: {
+    flexDirection: "row",
+    marginBottom: 6,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontFamily: "PoppinsMedium",
+    color: "#666",
+    width: 80,
+  },
+  detailValue: {
+    fontSize: 12,
     fontFamily: "Poppins",
-    color: "#999",
+    color: "#333",
+    flex: 1,
+  },
+  currentUserIndicator: {
+    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: "#FFF3CD",
+    borderRadius: 4,
+    alignSelf: "flex-start",
+  },
+  currentUserText: {
+    fontSize: 10,
+    fontFamily: "PoppinsMedium",
+    color: "#856404",
   },
   userActions: {
     flexDirection: "row",
+    justifyContent: "flex-end",
     gap: 8,
   },
   editButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     backgroundColor: "#ffc107",
     borderRadius: 6,
   },
@@ -639,8 +628,8 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   deleteButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     backgroundColor: "#dc3545",
     borderRadius: 6,
   },
@@ -648,6 +637,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "PoppinsMedium",
     color: "white",
+  },
+  noPermissionText: {
+    fontSize: 12,
+    fontFamily: "Poppins",
+    color: "#999",
+    fontStyle: "italic",
+    paddingVertical: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -664,6 +660,8 @@ const styles = StyleSheet.create({
     padding: 40,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#f8f9fa",
+    borderRadius: 12,
   },
   emptyStateText: {
     fontSize: 14,

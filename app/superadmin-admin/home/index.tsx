@@ -37,27 +37,6 @@ interface Document {
   updated_at: string;
 }
 
-interface DocumentStaff {
-  id: string;
-  file_name: string;
-  file_url: string;
-  subject: string;
-  user_id: string;
-  user: {
-    id: string;
-    name: string;
-  };
-  created_at: string;
-  updated_at: string;
-}
-
-interface SuperiorOrder {
-  document_id: string;
-  sender: string;
-  subject: string;
-  users: { id: string; name: string }[];
-}
-
 interface DashboardStats {
   totalUsers: number;
   totalAdmins: number;
@@ -65,13 +44,9 @@ interface DashboardStats {
   recentUsers: User[];
   activeToday: number;
   totalDocuments: number;
-  totalDocumentStaff: number;
   recentDocuments: Document[];
-  recentDocumentStaff: DocumentStaff[];
   documentsMasuk: number;
   documentsKeluar: number;
-  recentSuperiorOrders: SuperiorOrder[];
-  totalSuperiorOrders: number;
 }
 
 export default function SuperAdminHome() {
@@ -127,36 +102,6 @@ export default function SuperAdminHome() {
         ? await documentsResponse.json()
         : { documents: [] };
 
-      // Fetch document staff data
-      const documentStaffResponse = await fetch(
-        `${API_URL}/api/document_staff?limit=5`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const documentStaffData = documentStaffResponse.ok
-        ? await documentStaffResponse.json()
-        : { documents: [] };
-
-      // Fetch superior orders data (max 3)
-      const superiorOrdersResponse = await fetch(
-        `${API_URL}/api/superior_orders?limit=3`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const superiorOrdersData = superiorOrdersResponse.ok
-        ? await superiorOrdersResponse.json()
-        : { data: [] };
-
       // Calculate stats
       const totalUsers = usersData.length;
       const totalAdmins = usersData.filter(
@@ -168,8 +113,6 @@ export default function SuperAdminHome() {
 
       // Documents stats
       const totalDocuments = documentsData.documents?.length || 0;
-      const totalDocumentStaff = documentStaffData.documents?.length || 0;
-      const totalSuperiorOrders = superiorOrdersData.data?.length || 0;
       const documentsMasuk =
         documentsData.documents?.filter(
           (doc: Document) => doc.letter_type === "masuk"
@@ -195,17 +138,6 @@ export default function SuperAdminHome() {
         )
         .slice(0, 3);
 
-      // Get recent document staff (last 3)
-      const recentDocumentStaff = (documentStaffData.documents || [])
-        .sort(
-          (a: DocumentStaff, b: DocumentStaff) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        )
-        .slice(0, 3);
-
-      // Get recent superior orders (max 3)
-      const recentSuperiorOrders = (superiorOrdersData.data || []).slice(0, 3);
-
       // Mock data for active today
       const activeToday = Math.floor(Math.random() * totalUsers) + 1;
 
@@ -216,13 +148,9 @@ export default function SuperAdminHome() {
         recentUsers,
         activeToday,
         totalDocuments,
-        totalDocumentStaff,
         recentDocuments,
-        recentDocumentStaff,
         documentsMasuk,
         documentsKeluar,
-        recentSuperiorOrders,
-        totalSuperiorOrders,
       });
     } catch (error: any) {
       console.error("Error fetching dashboard data:", error);
@@ -360,18 +288,6 @@ export default function SuperAdminHome() {
             <Text style={styles.statNumber}>{stats?.totalStaff || 0}</Text>
             <Text style={styles.statLabel}>Staff</Text>
           </View>
-
-          <View style={styles.statCard}>
-            <View style={[styles.statIcon, { backgroundColor: "#e8f5e8" }]}>
-              <Text style={[styles.statIconText, { color: "#28a745" }]}>
-                📋
-              </Text>
-            </View>
-            <Text style={styles.statNumber}>
-              {stats?.totalSuperiorOrders || 0}
-            </Text>
-            <Text style={styles.statLabel}>Penugasan</Text>
-          </View>
         </View>
 
         {/* Documents Overview */}
@@ -440,27 +356,6 @@ export default function SuperAdminHome() {
                 <Text style={styles.documentStatLabel}>Keluar</Text>
               </View>
             </View>
-
-            <View style={styles.documentStatCard}>
-              <View
-                style={[
-                  styles.documentStatIcon,
-                  { backgroundColor: "#f0e8fd" },
-                ]}
-              >
-                <Text
-                  style={[styles.documentStatIconText, { color: "#6f42c1" }]}
-                >
-                  👨‍💼
-                </Text>
-              </View>
-              <View style={styles.documentStatInfo}>
-                <Text style={styles.documentStatNumber}>
-                  {stats?.totalDocumentStaff || 0}
-                </Text>
-                <Text style={styles.documentStatLabel}>Document Staff</Text>
-              </View>
-            </View>
           </View>
         </View>
 
@@ -486,55 +381,13 @@ export default function SuperAdminHome() {
 
             <TouchableOpacity
               style={styles.actionCard}
-              onPress={() => router.push("/superadmin-admin/attendees")}
+              onPress={() => router.push("/superadmin-admin/personal")}
             >
               <Text style={styles.actionIcon}>📋</Text>
-              <Text style={styles.actionText}>Daftar Peserta</Text>
+              <Text style={styles.actionText}>Pribadi</Text>
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Recent Superior Orders */}
-        {stats?.recentSuperiorOrders &&
-          stats.recentSuperiorOrders.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Perintah Atasan</Text>
-                <TouchableOpacity
-                  onPress={() => router.push("/superadmin-admin/attendees")}
-                >
-                  <Text style={styles.seeAllText}>Lihat Semua</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.superiorOrdersList}>
-                {stats.recentSuperiorOrders.map((order, index) => (
-                  <View
-                    key={order.document_id || index}
-                    style={styles.superiorOrderCard}
-                  >
-                    <View style={styles.superiorOrderHeader}>
-                      <Text
-                        style={styles.superiorOrderSubject}
-                        numberOfLines={2}
-                      >
-                        {order.subject || "Tidak ada judul"}
-                      </Text>
-                      <Text style={styles.superiorOrderSender}>
-                        Dari: {order.sender || "Tidak diketahui"}
-                      </Text>
-                    </View>
-
-                    <View style={styles.superiorOrderUsers}>
-                      <Text style={styles.usersLabel}>
-                        Ditugaskan ke: {order.users.length} user
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
 
         {/* Recent Documents */}
         <View style={styles.section}>
@@ -586,50 +439,6 @@ export default function SuperAdminHome() {
             ) : (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateText}>Belum ada dokumen</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Recent Document Staff */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Dokumen Staff</Text>
-            <TouchableOpacity
-              onPress={() => router.push("/superadmin-admin/documents")}
-            >
-              <Text style={styles.seeAllText}>Lihat Semua</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.documentsList}>
-            {stats?.recentDocumentStaff &&
-            stats.recentDocumentStaff.length > 0 ? (
-              stats.recentDocumentStaff.map((document) => (
-                <View key={document.id} style={styles.documentItem}>
-                  <View style={styles.documentIcon}>
-                    <Text style={styles.documentIconText}>
-                      {getFileIcon(document.file_name)}
-                    </Text>
-                  </View>
-                  <View style={styles.documentInfo}>
-                    <Text style={styles.documentName} numberOfLines={1}>
-                      {decodeFileName(document.file_name)}
-                    </Text>
-                    <Text style={styles.documentDetail}>
-                      {document.subject}
-                    </Text>
-                    <Text style={styles.documentDate}>
-                      {formatDateTime(document.created_at)}
-                    </Text>
-                  </View>
-                </View>
-              ))
-            ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>
-                  Belum ada document staff
-                </Text>
               </View>
             )}
           </View>

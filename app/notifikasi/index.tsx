@@ -170,7 +170,6 @@ export default function Notifications() {
           prev.map((notif) => ({ ...notif, is_read: true }))
         );
         setUnreadCount(0);
-        Alert.alert("Sukses", "Semua notifikasi telah ditandai sebagai dibaca");
       } else {
         throw new Error(
           data.error || "Gagal menandai semua pesan sebagai dibaca"

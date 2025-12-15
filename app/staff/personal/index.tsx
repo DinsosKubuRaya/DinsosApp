@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
   RefreshControl,
   ScrollView,
@@ -89,9 +90,13 @@ export default function LetterPage() {
       setDocuments(docs);
 
       // Calculate statistics
-      const masuk = docs.filter((d: Document) => d.letter_type === "masuk").length;
-      const keluar = docs.filter((d: Document) => d.letter_type === "keluar").length;
-      
+      const masuk = docs.filter(
+        (d: Document) => d.letter_type === "masuk"
+      ).length;
+      const keluar = docs.filter(
+        (d: Document) => d.letter_type === "keluar"
+      ).length;
+
       setStats({
         total: docs.length,
         masuk,
@@ -219,9 +224,7 @@ export default function LetterPage() {
     }
 
     if (letterTypeFilter !== "all") {
-      filtered = filtered.filter(
-        (doc) => doc.letter_type === letterTypeFilter
-      );
+      filtered = filtered.filter((doc) => doc.letter_type === letterTypeFilter);
     }
 
     if (senderFilter) {
@@ -239,12 +242,11 @@ export default function LetterPage() {
       });
     }
 
-    return filtered
-      .sort(
-        (a, b) =>
-          new Date(b.created_at || 0).getTime() -
-          new Date(a.created_at || 0).getTime()
-      );
+    return filtered.sort(
+      (a, b) =>
+        new Date(b.created_at || 0).getTime() -
+        new Date(a.created_at || 0).getTime()
+    );
   };
 
   const filteredData = getFilteredDocuments();
@@ -255,9 +257,7 @@ export default function LetterPage() {
         <Navbar />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0055A5" />
-          <Text style={styles.loadingText}>
-            Memuat data surat...
-          </Text>
+          <Text style={styles.loadingText}>Memuat data surat...</Text>
         </View>
       </View>
     );
@@ -267,218 +267,230 @@ export default function LetterPage() {
     <View style={styles.container}>
       <Navbar />
 
-      <ScrollView
-        style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Manajemen Surat</Text>
-          <Text style={styles.subtitle}>Kelola surat masuk dan keluar</Text>
-        </View>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Manajemen Surat</Text>
+            <Text style={styles.subtitle}>Kelola surat masuk dan keluar</Text>
+          </View>
 
-        {/* Statistics */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.total}</Text>
-            <Text style={styles.statLabel}>
-              Total Surat
-            </Text>
+          {/* Statistics */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{stats.total}</Text>
+              <Text style={styles.statLabel}>Total Surat</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{stats.masuk}</Text>
+              <Text style={styles.statLabel}>Masuk</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{stats.keluar}</Text>
+              <Text style={styles.statLabel}>Keluar</Text>
+            </View>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.masuk}</Text>
-            <Text style={styles.statLabel}>Masuk</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.keluar}</Text>
-            <Text style={styles.statLabel}>Keluar</Text>
-          </View>
-        </View>
 
-        {/* Search and Filter Bar */}
-        <View style={styles.searchFilterContainer}>
-          <View style={styles.searchBox}>
-            <Feather name="search" size={20} color="#999" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Cari surat..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor="#999"
-            />
+          {/* Search and Filter Bar */}
+          <View style={styles.searchFilterContainer}>
+            <View style={styles.searchBox}>
+              <Feather
+                name="search"
+                size={20}
+                color="#999"
+                style={styles.searchIcon}
+              />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Cari surat..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor="#999"
+              />
+            </View>
+            <TouchableOpacity
+              style={styles.filterButton}
+              onPress={() => setShowFilters(!showFilters)}
+            >
+              <Feather name="filter" size={18} color="white" />
+              <Text style={styles.filterButtonText}>Filter</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={styles.filterButton}
-            onPress={() => setShowFilters(!showFilters)}
-          >
-            <Feather name="filter" size={18} color="white" />
-            <Text style={styles.filterButtonText}>Filter</Text>
-          </TouchableOpacity>
-        </View>
 
-        {/* Filters */}
-        {showFilters && (
-          <View style={styles.filtersContainer}>
-            <Text style={styles.filterLabel}>Tipe Surat:</Text>
-            <View style={styles.filterOptions}>
-              {["all", "masuk", "keluar"].map((type) => (
+          {/* Filters */}
+          {showFilters && (
+            <View style={styles.filtersContainer}>
+              <Text style={styles.filterLabel}>Tipe Surat:</Text>
+              <View style={styles.filterOptions}>
+                {["all", "masuk", "keluar"].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.filterOption,
+                      letterTypeFilter === type && styles.filterOptionActive,
+                    ]}
+                    onPress={() => setLetterTypeFilter(type as any)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterOptionText,
+                        letterTypeFilter === type &&
+                          styles.filterOptionTextActive,
+                      ]}
+                    >
+                      {type === "all" ? "Semua" : type}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.filterLabel}>Pengirim:</Text>
+              <TextInput
+                style={styles.filterInput}
+                placeholder="Cari berdasarkan pengirim..."
+                value={senderFilter}
+                onChangeText={setSenderFilter}
+                placeholderTextColor="#999"
+              />
+
+              <Text style={styles.filterLabel}>Tanggal:</Text>
+              <View style={styles.dateFilterContainer}>
                 <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.filterOption,
-                    letterTypeFilter === type && styles.filterOptionActive,
-                  ]}
-                  onPress={() => setLetterTypeFilter(type as any)}
+                  style={styles.dateInput}
+                  onPress={showDatepicker}
                 >
                   <Text
                     style={[
-                      styles.filterOptionText,
-                      letterTypeFilter === type &&
-                        styles.filterOptionTextActive,
+                      styles.dateInputText,
+                      !dateFilter && styles.dateInputPlaceholder,
                     ]}
                   >
-                    {type === "all" ? "Semua" : type}
+                    {dateFilter
+                      ? formatDisplayDate(dateFilter)
+                      : "Pilih tanggal..."}
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
 
-            <Text style={styles.filterLabel}>Pengirim:</Text>
-            <TextInput
-              style={styles.filterInput}
-              placeholder="Cari berdasarkan pengirim..."
-              value={senderFilter}
-              onChangeText={setSenderFilter}
-              placeholderTextColor="#999"
-            />
+                {dateFilter && (
+                  <TouchableOpacity
+                    style={styles.clearDateButton}
+                    onPress={clearDateFilter}
+                  >
+                    <Text style={styles.clearDateButtonText}>×</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
 
-            <Text style={styles.filterLabel}>Tanggal:</Text>
-            <View style={styles.dateFilterContainer}>
-              <TouchableOpacity
-                style={styles.dateInput}
-                onPress={showDatepicker}
-              >
-                <Text
-                  style={[
-                    styles.dateInputText,
-                    !dateFilter && styles.dateInputPlaceholder,
-                  ]}
-                >
-                  {dateFilter
-                    ? formatDisplayDate(dateFilter)
-                    : "Pilih tanggal..."}
-                </Text>
-              </TouchableOpacity>
-
-              {dateFilter && (
-                <TouchableOpacity
-                  style={styles.clearDateButton}
-                  onPress={clearDateFilter}
-                >
-                  <Text style={styles.clearDateButtonText}>×</Text>
-                </TouchableOpacity>
+              {/* Date Picker */}
+              {showDatePicker && (
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  onChange={onDateChange}
+                />
               )}
+
+              {/* Tombol Reset Filter */}
+              <TouchableOpacity
+                style={styles.resetFilterButton}
+                onPress={() => {
+                  setSenderFilter("");
+                  setDateFilter("");
+                  setSelectedDate(new Date());
+                  setLetterTypeFilter("all");
+                  setSearchQuery("");
+                }}
+              >
+                <Text style={styles.resetFilterButtonText}>Reset Filter</Text>
+              </TouchableOpacity>
             </View>
+          )}
 
-            {/* Date Picker */}
-            {showDatePicker && (
-              <DateTimePicker
-                value={selectedDate}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={onDateChange}
-              />
-            )}
-
-            {/* Tombol Reset Filter */}
-            <TouchableOpacity
-              style={styles.resetFilterButton}
-              onPress={() => {
-                setSenderFilter("");
-                setDateFilter("");
-                setSelectedDate(new Date());
-                setLetterTypeFilter("all");
-                setSearchQuery("");
-              }}
-            >
-              <Text style={styles.resetFilterButtonText}>Reset Filter</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Documents List */}
-        <View style={styles.documentsList}>
-          {filteredData.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Feather name="file-text" size={64} color="#CCD6DD" />
-              <Text style={styles.emptyStateText}>
-                {documents.length === 0
-                  ? "Belum ada surat"
-                  : "Tidak ada surat yang sesuai dengan filter"}
-              </Text>
-            </View>
-          ) : (
-            filteredData.map((document: Document) => (
-              <View key={document.id} style={styles.documentCard}>
-                <View style={styles.documentHeader}>
-                  <View style={styles.documentTitle}>
-                    <Text style={styles.fileIcon}>
-                      {getFileIcon(document.file_name)}
-                    </Text>
-                    <Text style={styles.fileName} numberOfLines={1}>
-                      {decodeFileName(document.file_name || "File tanpa nama")}
-                    </Text>
-                  </View>
-                  {document.letter_type && (
-                    <View
-                      style={[
-                        styles.typeBadge,
-                        {
-                          backgroundColor: getLetterTypeColor(
-                            document.letter_type
-                          ),
-                        },
-                      ]}
-                    >
-                      <Text style={styles.typeText}>
-                        {document.letter_type.toUpperCase()}
+          {/* Documents List */}
+          <View style={styles.documentsList}>
+            {filteredData.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Feather name="file-text" size={64} color="#CCD6DD" />
+                <Text style={styles.emptyStateText}>
+                  {documents.length === 0
+                    ? "Belum ada surat"
+                    : "Tidak ada surat yang sesuai dengan filter"}
+                </Text>
+              </View>
+            ) : (
+              filteredData.map((document: Document) => (
+                <View key={document.id} style={styles.documentCard}>
+                  <View style={styles.documentHeader}>
+                    <View style={styles.documentTitle}>
+                      <Text style={styles.fileIcon}>
+                        {getFileIcon(document.file_name)}
+                      </Text>
+                      <Text style={styles.fileName} numberOfLines={1}>
+                        {decodeFileName(
+                          document.file_name || "File tanpa nama"
+                        )}
                       </Text>
                     </View>
-                  )}
-                </View>
-                <View style={styles.documentInfo}>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Pengirim:</Text>
-                    <Text style={styles.infoValue}>{document.sender}</Text>
+                    {document.letter_type && (
+                      <View
+                        style={[
+                          styles.typeBadge,
+                          {
+                            backgroundColor: getLetterTypeColor(
+                              document.letter_type
+                            ),
+                          },
+                        ]}
+                      >
+                        <Text style={styles.typeText}>
+                          {document.letter_type.toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Perihal:</Text>
-                    <Text style={styles.infoValue}>
-                      {document.subject || "-"}
-                    </Text>
+                  <View style={styles.documentInfo}>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Pengirim:</Text>
+                      <Text style={styles.infoValue}>{document.sender}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Perihal:</Text>
+                      <Text style={styles.infoValue}>
+                        {document.subject || "-"}
+                      </Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Tanggal:</Text>
+                      <Text style={styles.infoValue}>
+                        {formatDate(document.created_at)}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Tanggal:</Text>
-                    <Text style={styles.infoValue}>
-                      {formatDate(document.created_at)}
-                    </Text>
+                  <View style={styles.documentActions}>
+                    <TouchableOpacity
+                      style={styles.previewButton}
+                      onPress={() => openPreview(document)}
+                    >
+                      <Feather name="eye" size={14} color="white" />
+                      <Text style={styles.previewButtonText}> Preview</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
-                <View style={styles.documentActions}>
-                  <TouchableOpacity
-                    style={styles.previewButton}
-                    onPress={() => openPreview(document)}
-                  >
-                    <Feather name="eye" size={14} color="white" />
-                    <Text style={styles.previewButtonText}> Preview</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
-          )}
-        </View>
-      </ScrollView>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <DocumentPreview
         visible={showPreview}
@@ -497,7 +509,12 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 20,
+  },
+  scrollContent: {
+    paddingTop: 20,
+    paddingBottom: 40,
+    flexGrow: 1,
   },
   header: {
     marginBottom: 24,
@@ -680,7 +697,7 @@ const styles = StyleSheet.create({
   },
   documentsList: {
     flex: 1,
-    paddingBottom: 25,
+    paddingBottom: 30,
   },
   documentCard: {
     backgroundColor: "white",

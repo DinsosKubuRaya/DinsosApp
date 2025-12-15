@@ -6,13 +6,7 @@ import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useCallback, useState } from "react";
 
-import {
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Log from "./Log"; // Import komponen Log dari folder yang sama
 
 /*
@@ -286,7 +280,7 @@ export default function Navbar() {
               </TouchableOpacity>
 
               <TouchableOpacity onPress={handleLogout} style={styles.item}>
-                <Text style={styles.itemText}>Logout</Text>
+                <Text style={styles.logoutText}>Logout</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -362,6 +356,12 @@ const styles = StyleSheet.create({
   itemText: {
     fontSize: 13,
     fontFamily: "Poppins",
+  },
+  logoutText: {
+    fontSize: 13,
+    fontFamily: "Poppins",
+    color: "#dc3545",
+    fontWeight: "500",
   },
   notificationButton: {
     width: 40,

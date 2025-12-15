@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react"; // Tambahkan useMemo
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -12,10 +14,10 @@ import {
 
 import Alert from "@/components/Alert";
 import DocumentPreview from "@/components/DocumentPreview";
-import DocumentsForm from "@/components/DocumentsForm";
 import Log from "@/components/Log";
 import Navbar from "@/components/Navbar";
 import { API_URL } from "@/config/apiConfig";
+import { useFocusEffect, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 
 interface DocumentStaff {
@@ -23,23 +25,18 @@ interface DocumentStaff {
   file_name: string;
   file_url: string;
   subject: string;
-  user_id: string;
-  user: {
+  created_at: string;
+  updated_at: string;
+  user?: {
     id: string;
     name: string;
   };
-  created_at: string;
-  updated_at: string;
 }
 
 export default function DocumentStaffPage() {
   const [documentStaff, setDocumentStaff] = useState<DocumentStaff[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [editingDocument, setEditingDocument] = useState<DocumentStaff | null>(
-    null
-  );
   const [logMessage, setLogMessage] = useState<{
     type: "success" | "error";
     message: string;
@@ -47,128 +44,58 @@ export default function DocumentStaffPage() {
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [documentToDelete, setDocumentToDelete] =
     useState<DocumentStaff | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewDocument, setPreviewDocument] = useState<DocumentStaff | null>(
-    null
-  );
-  const [userId, setUserId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState(""); // State untuk pencarian
+  const [previewDocument, setPreviewDocument] = useState<{
+    file_url: string;
+    file_name: string;
+  } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
 
-  // Fungsi helper yang digunakan di useMemo harus didefinisikan sebelum useMemo
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const getFileIcon = (fileName: string) => {
-    if (fileName.toLowerCase().includes(".pdf")) return "📄";
-    if (fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return "🖼️";
-    return "📎";
-  };
-
-  const decodeFileName = (fileName: string) => {
-    try {
-      return decodeURIComponent(fileName);
-    } catch {
-      return fileName;
-    }
-  };
-
-  // Fetch document staff hanya untuk user yang login
-  const fetchDocumentStaff = React.useCallback(async () => {
+  const fetchPersonalDocuments = async () => {
     try {
       const token = await SecureStore.getItemAsync("token");
-      const storedUserId = await SecureStore.getItemAsync("user_id");
 
-      if (!token || !storedUserId) {
-        setLogMessage({
-          type: "error",
-          message: "User tidak terautentikasi",
-        });
-        setLoading(false);
-        return;
-      }
+      // Ambil data document staff milik user yang login
+      const response = await fetch(`${API_URL}/api/document_staff/personal`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      setUserId(storedUserId);
-
-      // Hanya ambil dokumen untuk user yang login
-      const response = await fetch(
-        `${API_URL}/api/document_staff?user_id=${storedUserId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Gagal mengambil data document staff: ${response.status}`
-        );
-      }
+      if (!response.ok) throw new Error("Gagal mengambil data dokumen pribadi");
 
       const data = await response.json();
       setDocumentStaff(data.documents || []);
     } catch (error: any) {
-      console.error("Error fetching document staff:", error);
+      console.error("Error fetching personal documents:", error);
       setLogMessage({
         type: "error",
-        message: error.message || "Gagal memuat data document staff",
+        message: error.message || "Gagal memuat data dokumen pribadi",
       });
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      console.log("DocumentPage: screen focused -> calling fetchDocuments()");
+      setLoading(true);
+      fetchPersonalDocuments();
+      return () => {
+        console.log("DocumentPage: screen unfocused");
+      };
+    }, [])
+  );
 
   useEffect(() => {
-    if (userId) {
-      console.log("User login terdeteksi:", userId);
-    }
-    fetchDocumentStaff();
-  }, [fetchDocumentStaff, userId]);
-
-  // Fungsi untuk memfilter dokumen berdasarkan pencarian
-  const filteredDocuments = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return documentStaff;
-    }
-
-    const query = searchQuery.toLowerCase();
-    return documentStaff.filter(
-      (doc) =>
-        doc.file_name.toLowerCase().includes(query) ||
-        doc.subject.toLowerCase().includes(query) ||
-        (doc.user?.name && doc.user.name.toLowerCase().includes(query)) ||
-        formatDate(doc.created_at).toLowerCase().includes(query)
-    );
-  }, [documentStaff, searchQuery]);
+    fetchPersonalDocuments();
+  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchDocumentStaff();
-  };
-
-  const handleFormSubmit = async (result: any) => {
-    if (result.success) {
-      setShowForm(false);
-      setLogMessage({
-        type: "success",
-        message: result.message,
-      });
-      fetchDocumentStaff();
-    } else {
-      setLogMessage({
-        type: "error",
-        message: result.message,
-      });
-    }
+    fetchPersonalDocuments();
   };
 
   const handleDeleteDocument = (document: DocumentStaff) => {
@@ -178,7 +105,7 @@ export default function DocumentStaffPage() {
 
   const confirmDelete = async () => {
     if (documentToDelete) {
-      await deleteDocumentStaff(documentToDelete.id);
+      await deleteDocument(documentToDelete.id);
     }
     setShowDeleteAlert(false);
     setDocumentToDelete(null);
@@ -189,7 +116,7 @@ export default function DocumentStaffPage() {
     setDocumentToDelete(null);
   };
 
-  const deleteDocumentStaff = async (documentId: string) => {
+  const deleteDocument = async (documentId: string) => {
     try {
       const token = await SecureStore.getItemAsync("token");
       const response = await fetch(
@@ -203,44 +130,84 @@ export default function DocumentStaffPage() {
       );
 
       if (!response.ok) {
-        throw new Error("Gagal menghapus document staff");
+        throw new Error("Gagal menghapus dokumen pribadi");
       }
 
       setLogMessage({
         type: "success",
-        message: "Document staff berhasil dihapus",
+        message: "Dokumen pribadi berhasil dihapus",
       });
-      fetchDocumentStaff();
+      fetchPersonalDocuments();
     } catch (error: any) {
-      console.error("Delete document staff error:", error);
+      console.error("Delete personal document error:", error);
       setLogMessage({
         type: "error",
-        message: error.message || "Gagal menghapus document staff",
+        message: error.message || "Gagal menghapus dokumen pribadi",
       });
     }
   };
 
-  const openEditForm = (document: DocumentStaff) => {
-    setEditingDocument(document);
-    setShowForm(true);
-  };
-
   const openPreview = (document: DocumentStaff) => {
-    setPreviewDocument(document);
-    setShowPreview(true);
+    setPreviewDocument({
+      file_url: document.file_url,
+      file_name: document.file_name,
+    });
   };
 
-  const closePreview = () => {
-    setShowPreview(false);
-    setPreviewDocument(null);
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-";
+    try {
+      return new Date(dateString).toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "-";
+    }
+  };
+
+  const decodeFileName = (fileName: string) => {
+    if (!fileName) return "File tanpa nama";
+    try {
+      return decodeURIComponent(fileName);
+    } catch {
+      return fileName;
+    }
+  };
+
+  const getFilteredDocuments = () => {
+    if (!searchQuery) return documentStaff;
+
+    const query = searchQuery.toLowerCase();
+    return documentStaff.filter((doc) => {
+      const fileName = (doc.file_name || "").toLowerCase();
+      const subject = (doc.subject || "").toLowerCase();
+
+      return fileName.includes(query) || subject.includes(query);
+    });
+  };
+
+  const filteredDocuments = getFilteredDocuments();
+
+  const handleUploadDocumentStaff = () => {
+    router.push({
+      pathname: "/form/DocumentsForm",
+      params: {
+        isStaffDocument: "true",
+      },
+    });
   };
 
   if (loading) {
     return (
       <View style={styles.container}>
+        <Navbar />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0055A5" />
-          <Text style={styles.loadingText}>Memuat data document staff...</Text>
+          <Text style={styles.loadingText}>Memuat data dokumen pribadi...</Text>
         </View>
       </View>
     );
@@ -250,7 +217,6 @@ export default function DocumentStaffPage() {
     <View style={styles.container}>
       <Navbar />
 
-      {/* Floating Log Container */}
       <View style={styles.floatingLogContainer}>
         {logMessage && (
           <Log
@@ -261,154 +227,143 @@ export default function DocumentStaffPage() {
         )}
       </View>
 
-      <ScrollView
-        style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+      {/* Tambahkan KeyboardAvoidingView di sini */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 25}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Dokumen</Text>
-          <Text style={styles.subtitle}>Kelola dokumen pribadi Anda</Text>
-        </View>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent} // Ganti ke scrollContent
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Dokumen Pribadi</Text>
+            <Text style={styles.subtitle}>Kelola dokumen pribadi Anda</Text>
+          </View>
 
-        {/* Statistics */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{documentStaff.length}</Text>
-            <Text style={styles.statLabel}>Total Dokumen</Text>
-          </View>          
-        </View>
-
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Cari dokumen (nama, perihal, tanggal)..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor="#999"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={() => setSearchQuery("")}
-            >
-              <Text style={styles.clearButtonText}>×</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Action Bar */}
-        <View style={styles.actionBar}>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => {
-              setEditingDocument(null);
-              setShowForm(true);
-            }}
-          >
-            <Text style={styles.addButtonText}>+ Upload Document Staff</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Documents List */}
-        <View style={styles.documentsList}>
-          {filteredDocuments.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>
-                {searchQuery.trim() !== ""
-                  ? `Tidak ditemukan dokumen untuk pencarian: "${searchQuery}"`
-                  : "Belum ada document staff"}
-              </Text>
-              {searchQuery.trim() !== "" && (
-                <TouchableOpacity
-                  style={styles.clearSearchButton}
-                  onPress={() => setSearchQuery("")}
-                >
-                  <Text style={styles.clearSearchButtonText}>
-                    Tampilkan semua dokumen
-                  </Text>
-                </TouchableOpacity>
-              )}
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{documentStaff.length}</Text>
+              <Text style={styles.statLabel}>Total Dokumen</Text>
             </View>
-          ) : (
-            filteredDocuments.map((document) => (
-              <View key={document.id} style={styles.documentCard}>
-                <View style={styles.documentHeader}>
-                  <View style={styles.documentTitle}>
-                    <Text style={styles.fileIcon}>
-                      {getFileIcon(document.file_name)}
-                    </Text>
-                    <Text style={styles.fileName} numberOfLines={1}>
-                      {decodeFileName(document.file_name)}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.documentInfo}>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Perihal:</Text>
-                    <Text style={styles.infoValue}>{document.subject}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Tanggal:</Text>
-                    <Text style={styles.infoValue}>
-                      {formatDate(document.created_at)}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.documentActions}>
-                  <TouchableOpacity
-                    style={styles.previewButton}
-                    onPress={() => openPreview(document)}
-                  >
-                    <Text style={styles.previewButtonText}>Preview</Text>
-                  </TouchableOpacity>
+          </View>
 
-                  <TouchableOpacity
-                    style={styles.editButton}
-                    onPress={() => openEditForm(document)}
-                  >
-                    <Text style={styles.editButtonText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteDocument(document)}
-                  >
-                    <Text style={styles.deleteButtonText}>Hapus</Text>
-                  </TouchableOpacity>
-                </View>
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBox}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Cari dokumen pribadi..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor="#999"
+              />
+              {searchQuery ? (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <Text style={styles.clearSearch}>✕</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={styles.actionBar}>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={handleUploadDocumentStaff}
+            >
+              <Text style={styles.addButtonText}>+ Upload Dokumen Pribadi</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.documentsList}>
+            {filteredDocuments.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>
+                  {searchQuery
+                    ? "Tidak ada dokumen yang sesuai dengan pencarian"
+                    : "Belum ada dokumen pribadi"}
+                </Text>
+                <Text style={styles.emptyStateSubtext}>
+                  {searchQuery
+                    ? "Coba dengan kata kunci lain"
+                    : "Tekan Upload Dokumen Pribadi untuk menambahkan dokumen pertama Anda"}
+                </Text>
               </View>
-            ))
-          )}
-        </View>
-      </ScrollView>
+            ) : (
+              filteredDocuments.map((document) => (
+                <View key={document.id} style={styles.documentCard}>
+                  <View style={styles.documentHeader}>
+                    <Text style={styles.fileName} numberOfLines={2}>
+                      📎 {decodeFileName(document.file_name)}
+                    </Text>
+                  </View>
+                  <View style={styles.documentInfo}>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Perihal:</Text>
+                      <Text style={styles.infoValue}>
+                        {document.subject || "-"}
+                      </Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Tanggal:</Text>
+                      <Text style={styles.infoValue}>
+                        {formatDate(document.created_at)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.documentActions}>
+                    <TouchableOpacity
+                      style={styles.previewButton}
+                      onPress={() => openPreview(document)}
+                    >
+                      <Text style={styles.previewButtonText}>Preview</Text>
+                    </TouchableOpacity>
 
-      {/* DocumentsForm Component */}
-      <DocumentsForm
-        visible={showForm}
-        onClose={() => {
-          setShowForm(false);
-          setEditingDocument(null);
-        }}
-        onSubmit={handleFormSubmit}
-        editData={editingDocument}
-        title="Document Staff"
-        isStaffDocument={true}
-      />
+                    <TouchableOpacity
+                      style={styles.editButton}
+                      onPress={() => {
+                        router.push({
+                          pathname: "/form/DocumentsForm",
+                          params: {
+                            isStaffDocument: "true",
+                            editData: JSON.stringify(document),
+                          },
+                        });
+                      }}
+                    >
+                      <Text style={styles.editButtonText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handleDeleteDocument(document)}
+                    >
+                      <Text style={styles.deleteButtonText}>Hapus</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <DocumentPreview
-        visible={showPreview}
-        onClose={closePreview}
+        visible={!!previewDocument}
+        onClose={() => setPreviewDocument(null)}
         document={previewDocument}
       />
 
-      {/* Delete Confirmation Alert */}
       {showDeleteAlert && documentToDelete && (
         <Alert
           title="Konfirmasi Hapus"
-          message={`Apakah Anda yakin ingin menghapus document staff "${decodeFileName(
-            documentToDelete?.file_name || ""
+          message={`Apakah Anda yakin ingin menghapus dokumen pribadi "${decodeFileName(
+            documentToDelete.file_name
           )}"?`}
           onYes={confirmDelete}
           onNo={cancelDelete}
@@ -433,7 +388,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    flexGrow: 1,
   },
   header: {
     marginBottom: 24,
@@ -479,44 +438,31 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   searchContainer: {
+    marginBottom: 16,
+  },
+  searchBox: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f8f9fa",
     borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 16,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: "#e0e0e0",
   },
+  searchIcon: {
+    marginRight: 12,
+    fontSize: 16,
+  },
   searchInput: {
     flex: 1,
-    height: 44,
-    fontFamily: "Poppins",
     fontSize: 14,
+    fontFamily: "Poppins",
     color: "#333",
-    paddingVertical: 8,
   },
-  clearButton: {
+  clearSearch: {
+    fontSize: 16,
+    color: "#666",
     padding: 4,
-    marginLeft: 8,
-  },
-  clearButtonText: {
-    fontSize: 20,
-    color: "#999",
-    fontFamily: "PoppinsBold",
-  },
-  searchInfoContainer: {
-    backgroundColor: "#e8f4fd",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: "#0055A5",
-  },
-  searchInfoText: {
-    fontSize: 12,
-    fontFamily: "PoppinsMedium",
-    color: "#0055A5",
   },
   actionBar: {
     flexDirection: "row",
@@ -541,7 +487,6 @@ const styles = StyleSheet.create({
   },
   documentsList: {
     flex: 1,
-    paddingBottom: 25,
   },
   documentCard: {
     backgroundColor: "white",
@@ -557,26 +502,13 @@ const styles = StyleSheet.create({
     borderLeftColor: "#0055A5",
   },
   documentHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
     marginBottom: 12,
-  },
-  documentTitle: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    marginRight: 12,
-  },
-  fileIcon: {
-    fontSize: 20,
-    marginRight: 8,
   },
   fileName: {
     fontSize: 16,
     fontFamily: "PoppinsBold",
     color: "#333",
-    flex: 1,
+    lineHeight: 22,
   },
   documentInfo: {
     marginBottom: 12,
@@ -589,7 +521,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "PoppinsMedium",
     color: "#666",
-    width: 100,
+    width: 80,
   },
   infoValue: {
     fontSize: 12,
@@ -601,7 +533,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     justifyContent: "flex-end",
-    flexWrap: "wrap",
   },
   previewButton: {
     paddingHorizontal: 12,
@@ -636,6 +567,24 @@ const styles = StyleSheet.create({
     fontFamily: "PoppinsMedium",
     color: "white",
   },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontFamily: "PoppinsMedium",
+    color: "#666",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    fontFamily: "Poppins",
+    color: "#999",
+    textAlign: "center",
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -646,30 +595,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Poppins",
     color: "#666",
-  },
-  emptyState: {
-    backgroundColor: "#f8f9fa",
-    padding: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyStateText: {
-    fontSize: 16,
-    fontFamily: "PoppinsMedium",
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 12,
-  },
-  clearSearchButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: "#0055A5",
-    borderRadius: 6,
-  },
-  clearSearchButtonText: {
-    color: "white",
-    fontSize: 12,
-    fontFamily: "PoppinsMedium",
   },
 });

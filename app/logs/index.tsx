@@ -286,29 +286,7 @@ export default function LogsPage() {
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>{totalLogs}</Text>
                 <Text style={styles.statLabel}>Total Aktivitas</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>
-                  {
-                    logs.filter((log) =>
-                      log.action?.toLowerCase().includes("create")
-                    ).length
-                  }
-                </Text>
-                <Text style={styles.statLabel}>Dibuat</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>
-                  {
-                    logs.filter((log) =>
-                      log.action?.toLowerCase().includes("update")
-                    ).length
-                  }
-                </Text>
-                <Text style={styles.statLabel}>Diupdate</Text>
-              </View>
+              </View>              
             </View>
           )}
 

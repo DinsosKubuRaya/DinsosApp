@@ -8,8 +8,9 @@ type WebSocketContextType = {
   setUnreadCount: (v: number) => void;
   profileData: { name: string; photoUrl: string };
   updateProfileData: (name: string, photoUrl: string) => void;
-  isWebSocketConnected: boolean; // Tambahkan status koneksi
-  retryCount: number; // Tambahkan counter untuk retry
+  isWebSocketConnected: boolean;
+  retryCount: number;
+  userChangeTrigger: number;
 };
 
 const WebSocketContext = createContext<WebSocketContextType>({
@@ -19,6 +20,7 @@ const WebSocketContext = createContext<WebSocketContextType>({
   updateProfileData: () => {},
   isWebSocketConnected: false,
   retryCount: 0,
+  userChangeTrigger: 0,
 });
 
 export const WebSocketProvider = ({ children }: any) => {
@@ -26,8 +28,8 @@ export const WebSocketProvider = ({ children }: any) => {
   const [profileData, setProfileData] = useState({ name: "", photoUrl: "" });
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [userChangeTrigger, setUserChangeTrigger] = useState(0);
 
-  // Load initial profile data from SecureStore
   useEffect(() => {
     const loadInitialProfile = async () => {
       const storedName = await SecureStore.getItemAsync("name");
@@ -48,37 +50,43 @@ export const WebSocketProvider = ({ children }: any) => {
     let ws: WebSocket | null = null;
     let reconnectTimeout: any = null;
     let connectionAttempts = 0;
-    const MAX_RETRY_DELAY = 30000; // 30 detik maksimum
-    const BASE_DELAY = 1000; // 1 detik awal
+    const MAX_RETRY_DELAY = 30000;
+    const BASE_DELAY = 1000;
 
     const setupWS = async () => {
       try {
         const token = await SecureStore.getItemAsync("token");
         const userId = await SecureStore.getItemAsync("user_id");
-        
+
         if (!token || !userId) {
-          console.log("WebSocket: Token atau user_id belum tersedia, akan coba lagi...");
-          // Tetap coba sambung meski token belum ada
+          console.log(
+            "WebSocket: Token atau user_id belum tersedia, akan coba lagi..."
+          );
+
           connectionAttempts++;
-          const delay = Math.min(BASE_DELAY * Math.pow(1.5, connectionAttempts), MAX_RETRY_DELAY);
+          const delay = Math.min(
+            BASE_DELAY * Math.pow(1.5, connectionAttempts),
+            MAX_RETRY_DELAY
+          );
           reconnectTimeout = setTimeout(setupWS, delay);
           return;
         }
 
         const wsUrl =
           API_URL.replace("http://", "ws://").replace("https://", "wss://") +
-          `/ws/notifications?user_id=${userId}`;
+          `/api/ws/all?user_id=${userId}`;
 
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
           console.log("✅ WS Connected (GLOBAL)");
           setIsWebSocketConnected(true);
-          setRetryCount(prev => prev + 1);
-          connectionAttempts = 0; // Reset attempts saat berhasil
+          setRetryCount((prev) => prev + 1);
+          connectionAttempts = 0;
         };
 
         ws.onmessage = (event) => {
+          console.log("WS RAW MESSAGE:", event.data);
           try {
             const data = JSON.parse(event.data);
 
@@ -89,12 +97,25 @@ export const WebSocketProvider = ({ children }: any) => {
             if (data.type === "profile_updated") {
               if (data.photo_url) {
                 SecureStore.setItemAsync("photo_url", data.photo_url);
-                setProfileData(prev => ({ ...prev, photoUrl: data.photo_url }));
+                setProfileData((prev) => ({
+                  ...prev,
+                  photoUrl: data.photo_url,
+                }));
               }
               if (data.name) {
                 SecureStore.setItemAsync("name", data.name);
-                setProfileData(prev => ({ ...prev, name: data.name }));
+                setProfileData((prev) => ({ ...prev, name: data.name }));
               }
+            }
+
+            if (
+              data.type === "user_created" ||
+              data.type === "user_updated" ||
+              data.type === "user_deleted"
+            ) {
+              console.log("Realtime User Event:", data);
+
+              setUserChangeTrigger(Date.now());
             }
           } catch (error) {
             console.error("WebSocket message parsing error:", error);
@@ -109,36 +130,41 @@ export const WebSocketProvider = ({ children }: any) => {
         ws.onclose = () => {
           console.log("WebSocket closed → reconnecting...");
           setIsWebSocketConnected(false);
-          
-          // Exponential backoff untuk reconnection
+
           connectionAttempts++;
-          const delay = Math.min(BASE_DELAY * Math.pow(1.5, connectionAttempts), MAX_RETRY_DELAY);
-          
-          console.log(`Reconnecting in ${delay}ms... (attempt ${connectionAttempts})`);
+          const delay = Math.min(
+            BASE_DELAY * Math.pow(1.5, connectionAttempts),
+            MAX_RETRY_DELAY
+          );
+
+          console.log(
+            `Reconnecting in ${delay}ms... (attempt ${connectionAttempts})`
+          );
           reconnectTimeout = setTimeout(setupWS, delay);
         };
-
       } catch (error) {
         console.error("WebSocket setup error:", error);
-        // Tetap coba ulang meski error
+
         connectionAttempts++;
-        const delay = Math.min(BASE_DELAY * Math.pow(1.5, connectionAttempts), MAX_RETRY_DELAY);
+        const delay = Math.min(
+          BASE_DELAY * Math.pow(1.5, connectionAttempts),
+          MAX_RETRY_DELAY
+        );
         reconnectTimeout = setTimeout(setupWS, delay);
       }
     };
 
-    // Mulai koneksi WebSocket segera
     setupWS();
 
     // Cleanup function
     return () => {
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (ws) {
-        ws.onclose = null; // Nonaktifkan handler close untuk mencegah reconnect
+        ws.onclose = null; 
         ws.close();
       }
     };
-  }, []); // Tidak ada dependencies, selalu jalankan saat mount
+  }, []); 
 
   return (
     <WebSocketContext.Provider
@@ -149,6 +175,7 @@ export const WebSocketProvider = ({ children }: any) => {
         updateProfileData,
         isWebSocketConnected,
         retryCount,
+        userChangeTrigger,
       }}
     >
       {children}
