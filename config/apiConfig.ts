@@ -1,1 +1,1 @@
-export const API_URL = "http://192.168.91.62:8080";
+export const API_URL = "https://dinsos-backend.up.railway.app";
