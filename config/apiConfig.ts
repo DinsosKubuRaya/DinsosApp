@@ -1,1 +1,1 @@
-export const API_URL = "https://dinsos-backend.up.railway.app";
+export const API_URL = "https://dinsosbackend-production.up.railway.app";

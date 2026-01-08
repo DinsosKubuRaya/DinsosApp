@@ -55,15 +55,21 @@ export default function SuperAdminHome() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userName, setUserName] = useState<string>("");
+  const [userRole, setUserRole] = useState<string>("");
 
-  const fetchUserName = async () => {
+  const fetchUserData = async () => {
     try {
       const name = await SecureStore.getItemAsync("name");
+      const role = await SecureStore.getItemAsync("role");
+
       if (name) {
         setUserName(name);
       }
+      if (role) {
+        setUserRole(role);
+      }
     } catch (error) {
-      console.error("Error fetching user name:", error);
+      console.error("Error fetching user data:", error);
     }
   };
 
@@ -71,7 +77,7 @@ export default function SuperAdminHome() {
     try {
       const token = await SecureStore.getItemAsync("token");
 
-      await fetchUserName();
+      await fetchUserData();
 
       // Fetch users data
       const usersResponse = await fetch(`${API_URL}/api/users`, {
@@ -286,7 +292,7 @@ export default function SuperAdminHome() {
               </Text>
             </View>
             <Text style={styles.statNumber}>{stats?.totalStaff || 0}</Text>
-            <Text style={styles.statLabel}>Staff</Text>
+            <Text style={styles.statLabel}>User</Text>
           </View>
         </View>
 
@@ -444,78 +450,82 @@ export default function SuperAdminHome() {
           </View>
         </View>
 
-        {/* Recent Users */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>User Terbaru</Text>
-            <TouchableOpacity
-              onPress={() => router.push("/superadmin-admin/users")}
-            >
-              <Text style={styles.seeAllText}>Lihat Semua</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Recent Users - Hanya tampil untuk superadmin */}
+        {userRole === "superadmin" && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>User Terbaru</Text>
+              <TouchableOpacity
+                onPress={() => router.push("/superadmin-admin/users")}
+              >
+                <Text style={styles.seeAllText}>Lihat Semua</Text>
+              </TouchableOpacity>
+            </View>
 
-          <View style={styles.recentUsersList}>
-            {stats?.recentUsers.map((user) => (
-              <View key={user.id} style={styles.recentUserCard}>
-                {/* Avatar */}
-                <View style={styles.userAvatar}>
-                  {user.photo_url ? (
-                    <Image
-                      source={{ uri: user.photo_url }}
-                      style={{ width: "100%", height: "100%" }}
-                      onError={() => console.log("Gambar tidak dapat dimuat")}
-                    />
-                  ) : (
-                    <View
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        backgroundColor: "#0055A5",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Text style={styles.avatarText}>
-                        {user.name.charAt(0).toUpperCase()}
+            <View style={styles.recentUsersList}>
+              {stats?.recentUsers && stats.recentUsers.length > 0 ? (
+                stats.recentUsers.map((user) => (
+                  <View key={user.id} style={styles.recentUserCard}>
+                    {/* Avatar */}
+                    <View style={styles.userAvatar}>
+                      {user.photo_url ? (
+                        <Image
+                          source={{ uri: user.photo_url }}
+                          style={{ width: "100%", height: "100%" }}
+                          onError={() =>
+                            console.log("Gambar tidak dapat dimuat")
+                          }
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            backgroundColor: "#0055A5",
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Text style={styles.avatarText}>
+                            {user.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Info: Name + Date */}
+                    <View style={styles.userInfo}>
+                      <Text style={styles.userName}>{user.name}</Text>
+                      <Text style={styles.userDateInline}>
+                        {formatDate(user.created_at)}
                       </Text>
                     </View>
-                  )}
-                </View>
 
-                {/* Info: Name + Date */}
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{user.name}</Text>
-                  <Text style={styles.userDateInline}>
-                    {formatDate(user.created_at)}
+                    {/* Role di pojok kanan bawah */}
+                    <View style={styles.userMeta}>
+                      <View
+                        style={[
+                          styles.roleBadge,
+                          { backgroundColor: getRoleColor(user.role) },
+                        ]}
+                      >
+                        <Text style={styles.roleText}>
+                          {user.role.toUpperCase()}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>
+                    Belum ada user terdaftar
                   </Text>
                 </View>
-
-                {/* Role di pojok kanan bawah */}
-                <View style={styles.userMeta}>
-                  <View
-                    style={[
-                      styles.roleBadge,
-                      { backgroundColor: getRoleColor(user.role) },
-                    ]}
-                  >
-                    <Text style={styles.roleText}>
-                      {user.role.toUpperCase()}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            ))}
-
-            {(!stats?.recentUsers || stats.recentUsers.length === 0) && (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>
-                  Belum ada user terdaftar
-                </Text>
-              </View>
-            )}
+              )}
+            </View>
           </View>
-        </View>
+        )}
       </ScrollView>
     </View>
   );

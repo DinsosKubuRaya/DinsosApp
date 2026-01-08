@@ -213,21 +213,21 @@ export default function UsersPage() {
 
   const canEditUser = (user: User) => {
     if (!userRole) return false;
+    // Hanya superadmin yang bisa edit, dan tidak bisa edit akun sendiri
     if (userRole === "superadmin") return user.id !== currentUserId;
-    if (userRole === "admin") return user.role === "staff";
     return false;
   };
 
   const canDeleteUser = (user: User) => {
     if (!userRole) return false;
+    // Hanya superadmin yang bisa hapus, tidak bisa hapus akun sendiri atau sesama superadmin
     if (userRole === "superadmin")
       return user.id !== currentUserId && user.role !== "superadmin";
-    if (userRole === "admin") return user.role === "staff";
     return false;
   };
 
   const canCreateUser = () => {
-    return userRole === "superadmin" || userRole === "admin";
+    return userRole === "superadmin";
   };
 
   if (loading) {
@@ -379,29 +379,39 @@ export default function UsersPage() {
                   </View>
 
                   <View style={styles.userActions}>
-                    {canEditUser(user) ? (
+                    {userRole === "superadmin" ? (
                       <>
-                        <TouchableOpacity
-                          style={styles.editButton}
-                          onPress={() => handleEditUser(user)}
-                        >
-                          <Text style={styles.editButtonText}>Edit</Text>
-                        </TouchableOpacity>
+                        {canEditUser(user) && (
+                          <TouchableOpacity
+                            style={styles.editButton}
+                            onPress={() => handleEditUser(user)}
+                          >
+                            <Text style={styles.editButtonText}>Edit</Text>
+                          </TouchableOpacity>
+                        )}
 
-                        {canDeleteUser(user) && (
+                        {canDeleteUser(user) ? (
                           <TouchableOpacity
                             style={styles.deleteButton}
                             onPress={() => handleDeleteUser(user)}
                           >
                             <Text style={styles.deleteButtonText}>Hapus</Text>
                           </TouchableOpacity>
+                        ) : (
+                          <Text style={styles.noPermissionText}>
+                            {user.id === currentUserId
+                              ? "Akun sendiri"
+                              : user.role === "superadmin"
+                              ? "Super Admin"
+                              : "Tidak dapat dihapus"}
+                          </Text>
                         )}
                       </>
                     ) : (
                       <Text style={styles.noPermissionText}>
                         {user.id === currentUserId
                           ? "Akun sendiri"
-                          : "Tidak dapat diubah"}
+                          : "Hanya Super Admin"}
                       </Text>
                     )}
                   </View>
